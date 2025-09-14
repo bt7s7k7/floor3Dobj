@@ -28,7 +28,7 @@ SUPPORTED_BLENDER_FORMATS = (
     ".fbx",
     ".3ds",
 )
-BASE_FORMAT = ".blend"
+BASE_FORMAT = ".obj"
 
 
 class MODE(Enum):
@@ -40,7 +40,7 @@ class MODE(Enum):
 BASE_PATH = "Data/"
 TARGET_PATH = "/Target/"
 TARGET_NAME = "floorplan"
-BLENDER_SCRIPT_PATH = "Blender/floorplan_to_3dObject_in_blender.py"
+BLENDER_SCRIPT_PATH = "Blender/floorplan_to_obj_direct.py"
 
 # Generators
 WALL_GROUND = 0
@@ -158,7 +158,7 @@ FEATURES = "FEATURES"
 # These values will be set in config file if config.ini is removed!
 DEFAULT_CALIBRATION_IMAGE_PATH = "Images/Calibrations/wallcalibration.png"
 DEFAULT_IMAGE_PATH = "Images/Examples/example.png"
-DEFAULT_OUT_FORMAT = ".blend"
+DEFAULT_OUT_FORMAT = ".obj"
 DEFAULT_OVERWRITE_DATA = "False"
 MAC_DEFAULT_BLENDER_INSTALL_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
 LINUX_DEFAULT_BLENDER_INSTALL_PATH = "/usr/local/blender/blender"

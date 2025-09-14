@@ -24,13 +24,17 @@ def create_blender_project(data_paths):
     if not os.path.exists("." + target_folder):
         os.makedirs("." + target_folder)
 
+    outformat = config.get(
+        const.SYSTEM_CONFIG_FILE_NAME, "SYSTEM", const.STR_OUT_FORMAT
+    ).replace('"', "")
+    
     target_base = target_folder + const.TARGET_NAME
-    target_path = target_base + const.BASE_FORMAT
+    target_path = target_base + outformat
     target_path = (
-        IO.get_next_target_base_name(target_base, target_path) + const.BASE_FORMAT
+        IO.get_next_target_base_name(target_base, target_path) + outformat
     )
 
-    # Create blender project
+    # Create 3D model directly in desired format
     check_output(
         [
             blender_install_path,
@@ -44,26 +48,7 @@ def create_blender_project(data_paths):
         + data_paths
     )
 
-    outformat = config.get(
-        const.SYSTEM_CONFIG_FILE_NAME, "SYSTEM", const.STR_OUT_FORMAT
-    ).replace('"', "")
-    # Transform .blend project to another format!
-    if outformat != ".blend":
-        check_output(
-            [
-                blender_install_path,
-                "-noaudio",  # this is a dockerfile ubuntu hax fix
-                "--background",
-                "--python",
-                "./Blender/blender_export_any.py",
-                "." + target_path,
-                outformat,
-                target_base + outformat,
-            ]
-        )
-        print("Object created at:" + program_path + target_base + outformat)
-
-    print("Project created at: " + program_path + target_path)
+    print("3D Model created at:" + program_path + target_path)
 
 
 if __name__ == "__main__":

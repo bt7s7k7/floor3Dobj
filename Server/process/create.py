@@ -64,7 +64,7 @@ class Create(Process):
         # Set other paths (don't need to change these)
         program_path = os.getcwd()
 
-        blender_script_path = "../Blender/floorplan_to_3dObject_in_blender.py"
+        blender_script_path = "../Blender/floorplan_to_obj_direct.py"
 
         # print(program_path, blender_script_path)
 
@@ -73,7 +73,7 @@ class Create(Process):
         # Remove target file if it already exists!
         # Else we will get a bad rename!
         fh = FileHandler()
-        tmp = "./storage/objects/" + self.process["in"] + ".blend"
+        tmp = "./storage/objects/" + self.process["out"]
         if os.path.isfile(tmp):
             fh.remove(tmp)
 
@@ -84,7 +84,6 @@ class Create(Process):
         # TODO: fix this to work for several instances at once!
         generate.base_path = "./storage/data/" + self.process["in"]
         generate.path = "./storage/data/" + self.process["in"]
-        target_path = "./storage/objects/" + self.process["in"] + ".blend"
         config_path = None
         f = floorplan.new_floorplan(config_path)
         f.image_path = image_path
@@ -104,37 +103,22 @@ class Create(Process):
         self.process["state"] = self.process["state"] + 1
         self.update("status", "Creating objects in Blender3d")
 
-        # Create blender project
-        # TODO: change script to decide format!
-        check_output(
-            [
+        # Create 3D model directly in desired format
+        cmd = [
                 blender_install_path,
                 "-noaudio",  # this is a dockerfile ubuntu hax fix
                 "--background",
                 "--python",
                 blender_script_path,  # Send this as parameter to script
                 program_path + "/",
-                target_path,
-            ]
-            + data_paths
-        )
-
-        self.process["state"] = self.process["state"] + 1
-        self.update("status", "Create Object file")
-
-        cmd = [
-                blender_install_path,
-                "-noaudio",  # this is a dockerfile ubuntu hax fix
-                "--background",
-                "--python",
-                "../Blender/blender_export_any.py",
-                "./storage/objects/" + self.process["in"] + ".blend",
-                self.process["format"],
                 "./storage/objects/" + self.process["out"],
-            ]
+            ] + data_paths
         check_output(
             cmd
         )
+
+        self.process["state"] = self.process["state"] + 1
+        self.update("status", "3D Model created")
 
         self.process["state"] = self.process["state"] + 1
         self.update("status", "Cleanup")
