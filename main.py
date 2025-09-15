@@ -113,8 +113,8 @@ if __name__ == "__main__":
 
         if var:
             config_path = var
-            floorplans.append(
-                floorplan.new_floorplan(c) for c in config_path.split(" ")
+            floorplans.extend(
+                [floorplan.new_floorplan(c) for c in config_path.split(" ")]
             )
 
         else:

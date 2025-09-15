@@ -1,0 +1,500 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Floor3D - 3D Model Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+
+        #info {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 14px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        #controls {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        select, button {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 8px 12px;
+            border-radius: 5px;
+            margin: 5px 0;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        select:hover, button:hover {
+            background: rgba(255, 255, 255, 0.2);
+        }
+
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            z-index: 200;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            font-size: 18px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-top: 4px solid white;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div class="spinner"></div>
+            Loading 3D Model...
+        </div>
+        
+        <div id="info">
+            <h3>🏠 Floor3D Viewer</h3>
+            <p><strong>Controls:</strong></p>
+            <p>🖱️ Left Click + Drag: Rotate</p>
+            <p>🔄 Mouse Wheel: Zoom</p>
+            <p>🖱️ Right Click + Drag: Pan</p>
+            <div id="modelInfo">
+                <p><strong>Model:</strong> <span id="currentModel">-</span></p>
+                <p><strong>Objects:</strong> <span id="objectCount">-</span></p>
+                <p><strong>Vertices:</strong> <span id="vertexCount">-</span></p>
+            </div>
+        </div>
+
+        <div id="controls">
+            <h4>🎛️ Controls</h4>
+            <div>
+                <label>Model:</label><br>
+                <select id="modelSelect">
+                    <option value="Target/floorplan.obj">Example 1 (floorplan.obj)</option>
+                    <option value="Target/floorplan1.obj">Example 1 Copy (floorplan1.obj)</option>
+                    <option value="Target/floorplan2.obj">Example 2 (floorplan2.obj)</option>
+                </select>
+            </div>
+            <div>
+                <button id="loadModel">Load Model</button>
+                <button id="resetView">Reset View</button>
+                <button id="toggleWireframe">Toggle Wireframe</button>
+                <button id="toggleShadows">Toggle Shadows</button>
+            </div>
+            <div>
+                <label>Background:</label><br>
+                <select id="backgroundSelect">
+                    <option value="gradient">Gradient</option>
+                    <option value="dark">Dark</option>
+                    <option value="light">Light</option>
+                    <option value="sky">Sky Blue</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/MTLLoader.js"></script>
+
+    <script>
+        // Global variables
+        let scene, camera, renderer, controls;
+        let currentModel = null;
+        let isWireframe = false;
+
+        // Initialize the 3D scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.01, 1000);
+            camera.position.set(10, 10, 10);
+
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                logarithmicDepthBuffer: true  // Helps with Z-fighting
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x2c3e50);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            
+            // Additional renderer settings to reduce Z-fighting
+            renderer.sortObjects = true;
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Add controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 100;
+            controls.minDistance = 1;
+
+            // Add lights
+            addLights();
+
+            // Add grid
+            const gridHelper = new THREE.GridHelper(20, 20, 0x444444, 0x444444);
+            scene.add(gridHelper);
+
+            // Add axes helper
+            const axesHelper = new THREE.AxesHelper(5);
+            scene.add(axesHelper);
+
+            // Event listeners
+            setupEventListeners();
+
+            // Load default model
+            loadModel('Target/floorplan.obj');
+
+            // Start animation loop
+            animate();
+        }
+
+        function addLights() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.6);
+            scene.add(ambientLight);
+
+            // Directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 10, 5);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+
+            // Point light
+            const pointLight = new THREE.PointLight(0xffffff, 0.5);
+            pointLight.position.set(-10, 10, -10);
+            scene.add(pointLight);
+        }
+
+        function setupEventListeners() {
+            document.getElementById('loadModel').addEventListener('click', () => {
+                const selectedModel = document.getElementById('modelSelect').value;
+                loadModel(selectedModel);
+            });
+
+            document.getElementById('resetView').addEventListener('click', resetView);
+            document.getElementById('toggleWireframe').addEventListener('click', toggleWireframe);
+            document.getElementById('toggleShadows').addEventListener('click', toggleShadows);
+
+            document.getElementById('backgroundSelect').addEventListener('change', (e) => {
+                changeBackground(e.target.value);
+            });
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        function loadModel(modelPath) {
+            showLoading(true);
+            
+            // Remove current model
+            if (currentModel) {
+                scene.remove(currentModel);
+            }
+
+            // Load MTL file first
+            const mtlPath = modelPath.replace('.obj', '.mtl');
+            const mtlLoader = new THREE.MTLLoader();
+            
+            mtlLoader.load(mtlPath, (materials) => {
+                materials.preload();
+
+                // Load OBJ file with materials
+                const objLoader = new THREE.OBJLoader();
+                objLoader.setMaterials(materials);
+                
+                objLoader.load(modelPath, (object) => {
+                    // Process the loaded object
+                    let meshIndex = 0;
+                    object.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            
+                            // Enhance materials and fix Z-fighting
+                            if (child.material) {
+                                child.material.side = THREE.DoubleSide;
+                                
+                                // Add small offset to prevent Z-fighting
+                                child.material.polygonOffset = true;
+                                child.material.polygonOffsetFactor = meshIndex * 0.1;
+                                child.material.polygonOffsetUnits = meshIndex * 0.1;
+                                
+                                // Improve material properties
+                                if (child.material.map) {
+                                    child.material.map.generateMipmaps = false;
+                                    child.material.map.minFilter = THREE.LinearFilter;
+                                }
+                                
+                                // Ensure proper depth testing
+                                child.material.depthTest = true;
+                                child.material.depthWrite = true;
+                            }
+                            
+                            // Add small random offset to geometry to prevent exact overlap
+                            const offset = meshIndex * 0.001;
+                            child.position.y += offset;
+                            
+                            meshIndex++;
+                        }
+                    });
+
+                    // Center the model
+                    const box = new THREE.Box3().setFromObject(object);
+                    const center = box.getCenter(new THREE.Vector3());
+                    object.position.sub(center);
+
+                    // Scale if needed
+                    const size = box.getSize(new THREE.Vector3());
+                    const maxSize = Math.max(size.x, size.y, size.z);
+                    if (maxSize > 20) {
+                        const scale = 20 / maxSize;
+                        object.scale.multiplyScalar(scale);
+                    }
+
+                    currentModel = object;
+                    scene.add(object);
+
+                    // Update info
+                    updateModelInfo(modelPath, object);
+                    
+                    // Reset camera
+                    resetView();
+                    
+                    showLoading(false);
+                }, 
+                (progress) => {
+                    console.log('Loading progress:', progress);
+                },
+                (error) => {
+                    console.error('Error loading model:', error);
+                    showLoading(false);
+                    alert('Error loading model. Make sure the OBJ and MTL files exist.');
+                });
+            },
+            (progress) => {
+                console.log('Loading materials:', progress);
+            },
+            (error) => {
+                console.error('Error loading materials:', error);
+                // Try loading without materials
+                loadModelWithoutMaterials(modelPath);
+            });
+        }
+
+        function loadModelWithoutMaterials(modelPath) {
+            const objLoader = new THREE.OBJLoader();
+            
+            objLoader.load(modelPath, (object) => {
+                // Apply default material
+                const defaultMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x888888,
+                    side: THREE.DoubleSide 
+                });
+                
+                let meshIndex = 0;
+                object.traverse((child) => {
+                    if (child.isMesh) {
+                        // Clone material for each mesh to avoid conflicts
+                        child.material = defaultMaterial.clone();
+                        child.castShadow = true;
+                        child.receiveShadow = true;
+                        
+                        // Fix Z-fighting
+                        child.material.polygonOffset = true;
+                        child.material.polygonOffsetFactor = meshIndex * 0.1;
+                        child.material.polygonOffsetUnits = meshIndex * 0.1;
+                        child.material.depthTest = true;
+                        child.material.depthWrite = true;
+                        
+                        // Add small offset to prevent overlap
+                        const offset = meshIndex * 0.001;
+                        child.position.y += offset;
+                        
+                        meshIndex++;
+                    }
+                });
+
+                // Center and scale the model
+                const box = new THREE.Box3().setFromObject(object);
+                const center = box.getCenter(new THREE.Vector3());
+                object.position.sub(center);
+
+                const size = box.getSize(new THREE.Vector3());
+                const maxSize = Math.max(size.x, size.y, size.z);
+                if (maxSize > 20) {
+                    const scale = 20 / maxSize;
+                    object.scale.multiplyScalar(scale);
+                }
+
+                currentModel = object;
+                scene.add(object);
+
+                updateModelInfo(modelPath, object);
+                resetView();
+                showLoading(false);
+            },
+            (progress) => {
+                console.log('Loading progress:', progress);
+            },
+            (error) => {
+                console.error('Error loading model:', error);
+                showLoading(false);
+                alert('Error loading model: ' + error.message);
+            });
+        }
+
+        function updateModelInfo(modelPath, object) {
+            document.getElementById('currentModel').textContent = modelPath.split('/').pop();
+            
+            let objectCount = 0;
+            let vertexCount = 0;
+            
+            object.traverse((child) => {
+                if (child.isMesh) {
+                    objectCount++;
+                    if (child.geometry) {
+                        vertexCount += child.geometry.attributes.position.count;
+                    }
+                }
+            });
+            
+            document.getElementById('objectCount').textContent = objectCount;
+            document.getElementById('vertexCount').textContent = vertexCount.toLocaleString();
+        }
+
+        function resetView() {
+            if (currentModel) {
+                const box = new THREE.Box3().setFromObject(currentModel);
+                const size = box.getSize(new THREE.Vector3());
+                const maxSize = Math.max(size.x, size.y, size.z);
+                
+                camera.position.set(maxSize, maxSize, maxSize);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            }
+        }
+
+        function toggleWireframe() {
+            if (currentModel) {
+                isWireframe = !isWireframe;
+                currentModel.traverse((child) => {
+                    if (child.isMesh && child.material) {
+                        child.material.wireframe = isWireframe;
+                    }
+                });
+            }
+        }
+
+        function toggleShadows() {
+            renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+            if (currentModel) {
+                currentModel.traverse((child) => {
+                    if (child.isMesh) {
+                        child.castShadow = renderer.shadowMap.enabled;
+                        child.receiveShadow = renderer.shadowMap.enabled;
+                    }
+                });
+            }
+        }
+
+        function changeBackground(type) {
+            const body = document.body;
+            switch(type) {
+                case 'gradient':
+                    body.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+                    renderer.setClearColor(0x2c3e50);
+                    break;
+                case 'dark':
+                    body.style.background = '#000000';
+                    renderer.setClearColor(0x000000);
+                    break;
+                case 'light':
+                    body.style.background = '#ffffff';
+                    renderer.setClearColor(0xffffff);
+                    break;
+                case 'sky':
+                    body.style.background = 'linear-gradient(to bottom, #87CEEB 0%, #98D8E8 100%)';
+                    renderer.setClearColor(0x87CEEB);
+                    break;
+            }
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').classList.toggle('hidden', !show);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

@@ -444,6 +444,8 @@ def create_floorplan(base_path, program_path, name=None):
         obj = create_custom_mesh(
             cornername, verts, [faces], mat=create_mat((40, 1, 1, 1)), cen=cen
         )
+        # Move floor slightly down to prevent Z-fighting with walls
+        obj.location.z -= 0.01
         obj.parent = parent
 
         """
@@ -459,6 +461,8 @@ def create_floorplan(base_path, program_path, name=None):
         for i in range(0, len(verts)):
             roomname = "Room" + str(i)
             obj = create_custom_mesh(roomname, verts[i], faces[i], cen=cen)
+            # Move rooms slightly up from floor to prevent Z-fighting
+            obj.location.z += 0.005
             obj.parent = room_parent
 
         room_parent.parent = parent
