@@ -60,7 +60,7 @@ class AIEnhancedOBJGenerator:
                 image_data = base64.b64encode(image_file.read()).decode('utf-8')
             
             # Use gpt-image-1 with images/edits endpoint as recommended
-            edit_prompt = """Create a clean architectural floorplan: Remove ALL furniture, decorations, text, room labels, and symbols. Convert windows into solid walls. Keep only structural walls as thick black lines on pure white background. Make it look like a simple architectural blueprint showing only the room layout and wall structure."""
+            edit_prompt = """Remove all furniture, leave only walls and doors. Make walls thick black lines on white background. Remove all text, labels, and decorative elements. Fill windows to show continuous walls."""
 
             # Use the correct gpt-image-1 model with image edit
             response = self.openai_client.images.edit(
