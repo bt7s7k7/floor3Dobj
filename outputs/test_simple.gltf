@@ -1,0 +1,91 @@
+{
+  "asset": {
+    "version": "2.0",
+    "generator": "AI-Enhanced Floorplan Service - Simple Generator"
+  },
+  "scene": 0,
+  "scenes": [
+    {
+      "nodes": [
+        0
+      ]
+    }
+  ],
+  "nodes": [
+    {
+      "mesh": 0
+    }
+  ],
+  "meshes": [
+    {
+      "primitives": [
+        {
+          "attributes": {
+            "POSITION": 0
+          },
+          "indices": 1,
+          "material": 0
+        }
+      ]
+    }
+  ],
+  "materials": [
+    {
+      "pbrMetallicRoughness": {
+        "baseColorFactor": [
+          0.8,
+          0.8,
+          0.8,
+          1.0
+        ],
+        "metallicFactor": 0.0,
+        "roughnessFactor": 0.9
+      },
+      "name": "FloorplanMaterial"
+    }
+  ],
+  "accessors": [
+    {
+      "bufferView": 0,
+      "componentType": 5126,
+      "count": 351,
+      "type": "VEC3",
+      "max": [
+        10.23,
+        4.7,
+        1.004
+      ],
+      "min": [
+        0.0,
+        1.17,
+        0.0
+      ]
+    },
+    {
+      "bufferView": 1,
+      "componentType": 5123,
+      "count": 126,
+      "type": "SCALAR"
+    }
+  ],
+  "bufferViews": [
+    {
+      "buffer": 0,
+      "byteOffset": 0,
+      "byteLength": 4212,
+      "target": 34962
+    },
+    {
+      "buffer": 0,
+      "byteOffset": 4212,
+      "byteLength": 252,
+      "target": 34963
+    }
+  ],
+  "buffers": [
+    {
+      "uri": "test_simple.bin",
+      "byteLength": 4464
+    }
+  ]
+}

@@ -27,6 +27,8 @@ if __name__ == "__main__":
         bpy.ops.export_scene.fbx(filepath=output_path)
     elif format == ".gltf":
         bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLTF_SEPARATE')
+    elif format == ".glb":
+        bpy.ops.export_scene.gltf(filepath=output_path, export_format='GLB')
     elif format == ".x3d":
         bpy.ops.export_scene.x3d(filepath=output_path)
     elif format == ".blend":

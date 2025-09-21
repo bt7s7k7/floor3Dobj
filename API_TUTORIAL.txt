@@ -1,0 +1,606 @@
+================================================================================
+                    🏠 FLOORPLAN TO GLB API - TUTORIAL
+================================================================================
+
+Tento tutorial vás naučí ako používať Docker službu na konverziu obrázkov 
+pôdorysov na 3D GLB modely.
+
+================================================================================
+📋 PREHĽAD SLUŽBY
+================================================================================
+
+Služba beží na: http://localhost:5002
+
+Workflow:
+PNG/JPG obrázok → AI spracovanie → 3D generovanie → GLB export → Base64 response
+
+Podporované formáty:
+- Vstup: PNG, JPG, JPEG (max 16MB)
+- Výstup: GLB (Binary glTF) ako Base64 string
+
+================================================================================
+🚀 RÝCHLY START
+================================================================================
+
+1. Kontrola stavu služby:
+   curl -X GET http://localhost:5002/health
+
+2. Test GLB exportu:
+   curl -X GET http://localhost:5002/test-glb-export -o test.json
+
+3. Pošlite obrázok a dostanete GLB:
+   curl -X POST -F 'image=@your_image.png' http://localhost:5002/process-glb -o result.json
+
+================================================================================
+📡 API ENDPOINTY
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 1. HEALTH CHECK                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+URL: GET http://localhost:5002/health
+
+Príklad:
+curl -X GET http://localhost:5002/health
+
+Response:
+{
+  "blender_path": "/Applications/Blender.app/Contents/MacOS/Blender",
+  "openai_configured": true,
+  "status": "healthy",
+  "timestamp": "2025-09-21T10:57:16.181779"
+}
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 2. TEST GLB EXPORT                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+URL: GET http://localhost:5002/test-glb-export
+
+Príklad:
+curl -X GET http://localhost:5002/test-glb-export -o test_response.json
+
+Response:
+{
+  "success": true,
+  "model": "Z2xURgIAAADYNwMAAEpTT057ImFzc2V0Ijp7ImdlbmVyYXRvciI6...",
+  "format": "glb",
+  "metadata": {
+    "test_file": "example5_ai_blender.blend",
+    "file_size_bytes": 227192,
+    "base64_size_chars": 302924,
+    "timestamp": "2025-09-21T10:57:16.181779"
+  }
+}
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ 3. KOMPLETNÝ WORKFLOW (PNG → GLB)                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+URL: POST http://localhost:5002/process-glb
+
+Príklad:
+curl -X POST \
+  -F 'image=@Images/Examples/example5.png' \
+  http://localhost:5002/process-glb \
+  -o my_result.json
+
+Response:
+{
+  "success": true,
+  "model": "Z2xURgIAAADYNwMAAEpTT057ImFzc2V0Ijp7ImdlbmVyYXRvciI6...",
+  "format": "glb",
+  "metadata": {
+    "request_id": "abc12345",
+    "timestamp": "20250921_105716",
+    "original_filename": "example5.png",
+    "file_size_bytes": 227192,
+    "base64_size_chars": 302924,
+    "rooms": 7,
+    "walls": 234,
+    "area": 325794,
+    "dimensions": {"width": 0, "height": 0, "depth": 2.5}
+  }
+}
+
+================================================================================
+💻 DEKÓDOVANIE GLB SÚBORU
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PYTHON                                                                      │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+import json
+import base64
+
+# Načítajte API response
+with open('my_result.json', 'r') as f:
+    data = json.load(f)
+
+if data['success']:
+    # Dekódujte Base64 GLB
+    glb_base64 = data['model']
+    glb_data = base64.b64decode(glb_base64)
+    
+    # Uložte GLB súbor
+    with open('my_model.glb', 'wb') as f:
+        f.write(glb_data)
+    
+    print(f"✅ GLB súbor uložený: my_model.glb")
+    print(f"📊 Veľkosť: {len(glb_data):,} bytes")
+    
+    # Metadata
+    metadata = data['metadata']
+    print(f"🏠 Miestnosti: {metadata['rooms']}")
+    print(f"🧱 Steny: {metadata['walls']}")
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ BASH (One-liner)                                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Kompletný workflow v jednom príkaze
+curl -X GET http://localhost:5002/test-glb-export | \
+python3 -c "
+import json, base64, sys
+data = json.load(sys.stdin)
+if data['success']:
+    glb = base64.b64decode(data['model'])
+    open('result.glb', 'wb').write(glb)
+    print('✅ GLB saved: result.glb')
+"
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ JAVASCRIPT/NODE.JS                                                          │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+// Upload image and get GLB
+const formData = new FormData();
+formData.append('image', imageFile);
+
+fetch('http://localhost:5002/process-glb', {
+    method: 'POST',
+    body: formData
+})
+.then(response => response.json())
+.then(data => {
+    if (data.success) {
+        // Decode Base64 GLB
+        const glbBase64 = data.model;
+        const glbArrayBuffer = Uint8Array.from(atob(glbBase64), c => c.charCodeAt(0));
+        
+        // Create blob for Three.js
+        const glbBlob = new Blob([glbArrayBuffer], {type: 'model/gltf-binary'});
+        
+        // Load in Three.js
+        const loader = new THREE.GLTFLoader();
+        loader.load(URL.createObjectURL(glbBlob), (gltf) => {
+            scene.add(gltf.scene);
+            console.log('✅ GLB model loaded in Three.js!');
+        });
+        
+        // Or save as file (Node.js)
+        const fs = require('fs');
+        fs.writeFileSync('model.glb', Buffer.from(glbBase64, 'base64'));
+    }
+});
+
+================================================================================
+🧪 TESTOVANIE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ RÝCHLY TEST                                                                 │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Spustite rýchly test
+python3 quick_test.py
+
+# Očakávaný výstup:
+# ✅ SUCCESS!
+# GLB file: quick_test_1758445036.glb
+# Size: 227,192 bytes
+# Format: ✅ Valid GLB
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ MANUÁLNE TESTY                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Test 1: Health check
+curl -X GET http://localhost:5002/health
+
+# Test 2: GLB export
+curl -X GET http://localhost:5002/test-glb-export -o test.json
+
+# Test 3: Dekódovanie GLB
+python3 -c "
+import json, base64
+data = json.load(open('test.json'))
+glb = base64.b64decode(data['model'])
+open('decoded.glb', 'wb').write(glb)
+print('✅ GLB decoded: decoded.glb')
+"
+
+# Test 4: Verifikácia GLB súboru
+file decoded.glb
+# Očakávaný výstup: glTF binary model, version 2
+
+================================================================================
+🔧 RIEŠENIE PROBLÉMOV
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ČASTÉ PROBLÉMY                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+1. Služba nebeží:
+   - Skontrolujte: curl -X GET http://localhost:5002/health
+   - Riešenie: Reštartujte službu
+
+2. "OpenAI not configured":
+   - Skontrolujte .env súbor
+   - Riešenie: echo "OPENAI_API_KEY=your_key" > .env
+
+3. "Billing hard limit reached":
+   - OpenAI API limit dosiahnutý
+   - Služba pokračuje s pôvodným obrázkom (bez AI čistenia)
+
+4. Veľký súbor (>16MB):
+   - Zmenšite obrázok
+   - Alebo zvýšte MAX_CONTENT_LENGTH v kóde
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ DEBUGGING                                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Verbose curl
+curl -X GET http://localhost:5002/health -v
+
+# Kontrola logov služby
+# Pozrite si terminál kde beží docker_ai_service.py
+
+# Test s malým obrázkom
+curl -X POST -F 'image=@Images/Examples/example.png' \
+     http://localhost:5002/test-glb-export \
+     --max-time 60 -v
+
+================================================================================
+📊 VÝKON A LIMITY
+================================================================================
+
+Typické časy spracovania:
+- AI preprocessing: 10-30s (ak funguje OpenAI)
+- 3D generovanie: 30-60s
+- GLB export: 5-15s
+- Celkom: 1-2 minúty
+
+Limity:
+- Max veľkosť súboru: 16MB
+- Timeout: 5 minút
+- Podporované formáty: PNG, JPG, JPEG
+
+Výstupný GLB:
+- Typická veľkosť: 50KB - 500KB
+- Base64 je ~33% väčší ako binárny GLB
+- Obsahuje geometriu + materiály v jednom súbore
+
+================================================================================
+🎯 INTEGRÁCIA DO APLIKÁCIÍ
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ REACT/JAVASCRIPT FRONTEND                                                   │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+const uploadFloorplan = async (imageFile) => {
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  
+  try {
+    const response = await fetch('http://localhost:5002/process-glb', {
+      method: 'POST',
+      body: formData
+    });
+    
+    const result = await response.json();
+    
+    if (result.success) {
+      // Dekódujte GLB
+      const glbData = atob(result.model);
+      const glbArray = new Uint8Array(glbData.length);
+      for (let i = 0; i < glbData.length; i++) {
+        glbArray[i] = glbData.charCodeAt(i);
+      }
+      
+      // Vytvorte blob pre Three.js
+      const glbBlob = new Blob([glbArray], {type: 'model/gltf-binary'});
+      const glbUrl = URL.createObjectURL(glbBlob);
+      
+      // Načítajte do Three.js
+      const loader = new THREE.GLTFLoader();
+      loader.load(glbUrl, (gltf) => {
+        scene.add(gltf.scene);
+        console.log('✅ 3D model načítaný!');
+      });
+      
+      return {
+        success: true,
+        glbUrl: glbUrl,
+        metadata: result.metadata
+      };
+    }
+  } catch (error) {
+    console.error('❌ Upload failed:', error);
+    return { success: false, error: error.message };
+  }
+};
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ PYTHON BACKEND                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+import requests
+import base64
+import json
+
+def convert_floorplan_to_glb(image_path, output_path):
+    """Convert floorplan image to GLB using API"""
+    
+    api_url = "http://localhost:5002/process-glb"
+    
+    try:
+        # Upload image
+        with open(image_path, 'rb') as f:
+            files = {'image': f}
+            response = requests.post(api_url, files=files, timeout=300)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if data['success']:
+                # Decode GLB
+                glb_base64 = data['model']
+                glb_data = base64.b64decode(glb_base64)
+                
+                # Save GLB file
+                with open(output_path, 'wb') as f:
+                    f.write(glb_data)
+                
+                return {
+                    'success': True,
+                    'output_file': output_path,
+                    'metadata': data['metadata']
+                }
+            else:
+                return {'success': False, 'error': data.get('error')}
+        else:
+            return {'success': False, 'error': f'HTTP {response.status_code}'}
+            
+    except Exception as e:
+        return {'success': False, 'error': str(e)}
+
+# Použitie:
+result = convert_floorplan_to_glb('my_floorplan.png', 'output.glb')
+if result['success']:
+    print(f"✅ GLB created: {result['output_file']}")
+    print(f"📊 Rooms: {result['metadata']['rooms']}")
+    print(f"📊 Walls: {result['metadata']['walls']}")
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CURL PRÍKLADY                                                               │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Základný test
+curl -X GET http://localhost:5002/health
+
+# GLB export test
+curl -X GET http://localhost:5002/test-glb-export -o test.json
+
+# Upload obrázka a získanie GLB
+curl -X POST \
+  -F 'image=@Images/Examples/example5.png' \
+  http://localhost:5002/process-glb \
+  -o result.json \
+  --max-time 300
+
+# Dekódovanie GLB z response (Linux/Mac)
+cat result.json | jq -r '.model' | base64 -d > model.glb
+
+# Dekódovanie GLB s Python
+python3 -c "
+import json, base64
+data = json.load(open('result.json'))
+if data['success']:
+    glb = base64.b64decode(data['model'])
+    open('model.glb', 'wb').write(glb)
+    print('✅ GLB saved: model.glb')
+    print(f'📊 Size: {len(glb):,} bytes')
+else:
+    print(f'❌ Error: {data[\"error\"]}')
+"
+
+================================================================================
+📋 RESPONSE FORMÁT
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ ÚSPEŠNÝ RESPONSE                                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+{
+  "success": true,
+  "model": "Z2xURgIAAADYNwMAAEpTT05...",  // Base64 encoded GLB data
+  "format": "glb",
+  "metadata": {
+    "request_id": "abc12345",              // Unique request ID
+    "timestamp": "20250921_105716",        // Processing timestamp
+    "original_filename": "example5.png",   // Original image name
+    "file_size_bytes": 227192,             // GLB file size in bytes
+    "base64_size_chars": 302924,           // Base64 string length
+    "rooms": 7,                            // Detected rooms count
+    "walls": 234,                          // Detected walls count
+    "area": 325794,                        // Approximate area
+    "dimensions": {                        // 3D dimensions
+      "width": 0,
+      "height": 0,
+      "depth": 2.5
+    }
+  }
+}
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ CHYBOVÝ RESPONSE                                                            │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+{
+  "success": false,
+  "error": "Processing failed: Blender execution failed"
+}
+
+Možné chyby:
+- "No image file provided" - Chýba image parameter
+- "Only PNG, JPG, JPEG files allowed" - Nesprávny formát súboru
+- "OpenAI not configured" - Chýba OPENAI_API_KEY
+- "Blender processing failed" - Problém s 3D generovaním
+- "GLB export failed" - Problém s GLB exportom
+
+================================================================================
+🎮 POUŽITIE V THREE.JS
+================================================================================
+
+// HTML
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+// JavaScript
+async function loadFloorplanModel(imageFile) {
+  // 1. Upload to API
+  const formData = new FormData();
+  formData.append('image', imageFile);
+  
+  const response = await fetch('http://localhost:5002/process-glb', {
+    method: 'POST',
+    body: formData
+  });
+  
+  const data = await response.json();
+  
+  if (data.success) {
+    // 2. Decode Base64 GLB
+    const glbBase64 = data.model;
+    const glbBinary = atob(glbBase64);
+    const glbArray = new Uint8Array(glbBinary.length);
+    for (let i = 0; i < glbBinary.length; i++) {
+      glbArray[i] = glbBinary.charCodeAt(i);
+    }
+    
+    // 3. Create blob URL
+    const glbBlob = new Blob([glbArray], {type: 'model/gltf-binary'});
+    const glbUrl = URL.createObjectURL(glbBlob);
+    
+    // 4. Load in Three.js
+    const loader = new THREE.GLTFLoader();
+    return new Promise((resolve, reject) => {
+      loader.load(
+        glbUrl,
+        (gltf) => {
+          resolve({
+            model: gltf.scene,
+            metadata: data.metadata
+          });
+        },
+        undefined,
+        reject
+      );
+    });
+  } else {
+    throw new Error(data.error);
+  }
+}
+
+// Použitie:
+loadFloorplanModel(imageFile).then(({model, metadata}) => {
+  scene.add(model);
+  console.log(`✅ Model loaded: ${metadata.rooms} rooms, ${metadata.walls} walls`);
+});
+
+================================================================================
+🐳 DOCKER NASADENIE
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ LOKÁLNE SPUSTENIE                                                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# 1. Nastavte .env súbor
+echo "OPENAI_API_KEY=your_api_key_here" > .env
+
+# 2. Spustite službu
+cd /Users/matuskolejak/Downloads/meltflex/floor3Dobj
+source venv/bin/activate
+BLENDER_PATH="/Applications/Blender.app/Contents/MacOS/Blender" PORT=5002 python3 docker_ai_service.py
+
+# 3. Testujte
+curl -X GET http://localhost:5002/health
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ DOCKER COMPOSE                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+# Build Docker image
+docker-compose -f docker-compose.ai.yml build
+
+# Spustite služby
+docker-compose -f docker-compose.ai.yml up -d
+
+# Testujte cez nginx (port 8081)
+curl -X GET http://localhost:8081/health
+
+# Zastavte služby
+docker-compose -f docker-compose.ai.yml down
+
+================================================================================
+📈 PRODUKČNÉ NASADENIE
+================================================================================
+
+Pre produkčné nasadenie odporúčame:
+
+1. Použiť WSGI server (Gunicorn)
+2. Nginx reverse proxy
+3. SSL certifikáty
+4. Rate limiting
+5. Monitoring (health checks)
+6. Horizontálne škálovanie
+
+Príklad produkčnej konfigurácie je v docker-compose.ai.yml
+
+================================================================================
+🎉 ZÁVER
+================================================================================
+
+Vaša Docker služba je plne funkčná a pripravená na použitie!
+
+Workflow: PNG obrázok → AI spracovanie → 3D model → GLB súbor → Base64 API
+
+Hlavný endpoint:
+POST http://localhost:5002/process-glb
+
+Response: GLB model ako Base64 string s metadátami
+
+✅ Služba je pripravená na integráciu do vašich aplikácií!
+
+================================================================================
+📞 KONTAKT A PODPORA
+================================================================================
+
+Pre technickú podporu:
+- Skontrolujte logy služby
+- Otestujte health endpoint
+- Prečítajte si README_DOCKER.md
+
+Služba vytvorená: September 2025
+Verzia: 1.0.0
+Status: Production Ready ✅
+
+================================================================================

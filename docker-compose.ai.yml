@@ -1,0 +1,53 @@
+# Docker Compose for AI Floorplan Service
+
+services:
+  floorplan-ai-service:
+    build:
+      context: .
+      dockerfile: Dockerfile.ai
+    container_name: floorplan-ai-processor
+    ports:
+      - "5001:5000"  # Avoid conflict with existing services
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - BLENDER_PATH=/usr/local/blender/blender
+      - PORT=5000
+      - PYTHONPATH=/app
+    volumes:
+      # Mount for persistent outputs (optional)
+      - ./outputs:/tmp/outputs
+      # Mount for logs (optional)
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - floorplan-network
+
+  # Optional: Nginx reverse proxy
+  nginx:
+    image: nginx:alpine
+    container_name: floorplan-nginx
+    ports:
+      - "8081:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - floorplan-ai-service
+    networks:
+      - floorplan-network
+    restart: unless-stopped
+
+networks:
+  floorplan-network:
+    driver: bridge
+
+volumes:
+  outputs:
+    driver: local
+  logs:
+    driver: local

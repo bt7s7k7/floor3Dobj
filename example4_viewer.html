@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="sk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Example4 3D Model - Three.js Viewer</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 100;
+            max-width: 320px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        #controls {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            color: white;
+            background: rgba(0,0,0,0.8);
+            padding: 20px;
+            border-radius: 12px;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        button {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+        }
+        
+        button:active {
+            transform: translateY(0);
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-size: 28px;
+            z-index: 200;
+            text-align: center;
+            background: rgba(0,0,0,0.8);
+            padding: 30px 40px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .loading-spinner {
+            border: 3px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 3px solid white;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        h3 {
+            margin-top: 0;
+            color: #667eea;
+            font-size: 20px;
+        }
+        
+        ul {
+            padding-left: 20px;
+        }
+        
+        li {
+            margin: 8px 0;
+        }
+        
+        .stats {
+            background: rgba(255,255,255,0.1);
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="loading">
+            <div class="loading-spinner"></div>
+            Načítavam 3D model Example4...
+        </div>
+        
+        <div id="info">
+            <h3>🏠 Example4 3D Viewer</h3>
+            <p><strong>Model:</strong> example4_threejs.gltf</p>
+            <p><strong>Zdroj:</strong> AI spracovaný pôdorys</p>
+            <p><strong>Workflow:</strong> PNG → AI → Blender → glTF</p>
+            
+            <div class="stats">
+                <p><strong>📊 Štatistiky:</strong></p>
+                <p>🏠 Miestnosti: <span id="roomCount">-</span></p>
+                <p>🧱 Steny: <span id="wallCount">-</span></p>
+                <p>📐 Vrcholy: <span id="vertexCount">-</span></p>
+            </div>
+            
+            <p><strong>🎮 Ovládanie:</strong></p>
+            <ul>
+                <li>🖱️ Ľavé tlačítko: Otáčanie</li>
+                <li>🎡 Koliesko: Zoom</li>
+                <li>🖱️ Pravé tlačítko: Posun</li>
+                <li>⌨️ R: Reset kamery</li>
+            </ul>
+        </div>
+        
+        <div id="controls">
+            <button onclick="resetCamera()" title="Reset kamery">🎯 Reset</button>
+            <button onclick="toggleWireframe()" title="Wireframe mód">🔲 Wireframe</button>
+            <button onclick="toggleLighting()" title="Prepnúť osvetlenie">💡 Svetlo</button>
+            <button onclick="toggleFloor()" title="Zobraziť/skryť podlahu">🏠 Podlaha</button>
+            <button onclick="takeScreenshot()" title="Urobiť screenshot">📷 Screenshot</button>
+        </div>
+    </div>
+
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // Globálne premenné
+        let scene, camera, renderer, controls, model;
+        let wireframeMode = false;
+        let lightingEnabled = true;
+        let floorVisible = true;
+        let roomObjects = [];
+        let wallObjects = [];
+        let floorObjects = [];
+
+        // Inicializácia
+        function init() {
+            console.log('🚀 Inicializujem Three.js scénu...');
+            
+            // Scéna
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x2c3e50);
+            scene.fog = new THREE.Fog(0x2c3e50, 50, 200);
+
+            // Kamera
+            camera = new THREE.PerspectiveCamera(
+                75, 
+                window.innerWidth / window.innerHeight, 
+                0.1, 
+                1000
+            );
+            camera.position.set(15, 15, 15);
+
+            // Renderer s vylepšenými nastaveniami
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true,
+                alpha: true,
+                preserveDrawingBuffer: true // Pre screenshots
+            });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.2;
+            
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // Vylepšené ovládanie
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.enableZoom = true;
+            controls.autoRotate = false;
+            controls.maxPolarAngle = Math.PI / 2.1; // Obmedziť pohľad zdola
+
+            // Osvetlenie
+            setupAdvancedLighting();
+
+            // Načítanie modelu
+            loadModel();
+
+            // Event listenery
+            window.addEventListener('resize', onWindowResize, false);
+            window.addEventListener('keydown', onKeyDown, false);
+        }
+
+        function setupAdvancedLighting() {
+            // Ambientné svetlo
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.4);
+            scene.add(ambientLight);
+
+            // Hlavné smerové svetlo
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1.0);
+            directionalLight.position.set(20, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 4096;
+            directionalLight.shadow.mapSize.height = 4096;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 100;
+            directionalLight.shadow.camera.left = -50;
+            directionalLight.shadow.camera.right = 50;
+            directionalLight.shadow.camera.top = 50;
+            directionalLight.shadow.camera.bottom = -50;
+            scene.add(directionalLight);
+
+            // Vyplňovacie svetlo
+            const fillLight = new THREE.DirectionalLight(0x87ceeb, 0.3);
+            fillLight.position.set(-10, 10, -10);
+            scene.add(fillLight);
+
+            // Bodové svetlo pre atmosféru
+            const pointLight = new THREE.PointLight(0xffffff, 0.5, 100);
+            pointLight.position.set(0, 15, 0);
+            pointLight.castShadow = true;
+            scene.add(pointLight);
+        }
+
+        function loadModel() {
+            const loader = new THREE.GLTFLoader();
+            
+            console.log('📦 Načítavam model example4_threejs.gltf...');
+            
+            loader.load(
+                'Target/example4_threejs.gltf',
+                function(gltf) {
+                    model = gltf.scene;
+                    
+                    console.log('✅ Model úspešne načítaný!', gltf);
+                    
+                    // Analýza a kategorizácia objektov
+                    analyzeModel(model);
+                    
+                    // Nastavenie materiálov a tieňov
+                    setupModelMaterials(model);
+                    
+                    scene.add(model);
+                    
+                    // Vycentrovanie modelu
+                    centerModel(model);
+                    
+                    // Skryť loading
+                    document.getElementById('loading').style.display = 'none';
+                    
+                    // Aktualizovať štatistiky
+                    updateStats();
+                },
+                function(progress) {
+                    const percent = (progress.loaded / progress.total * 100).toFixed(1);
+                    document.getElementById('loading').innerHTML = `
+                        <div class="loading-spinner"></div>
+                        Načítavam model... ${percent}%
+                    `;
+                },
+                function(error) {
+                    console.error('❌ Chyba pri načítaní modelu:', error);
+                    document.getElementById('loading').innerHTML = '❌ Chyba pri načítaní modelu!<br>Skontrolujte konzolu pre detaily.';
+                }
+            );
+        }
+
+        function analyzeModel(model) {
+            roomObjects = [];
+            wallObjects = [];
+            floorObjects = [];
+            
+            model.traverse(function(child) {
+                if (child.isMesh) {
+                    const name = child.name.toLowerCase();
+                    
+                    if (name.includes('room')) {
+                        roomObjects.push(child);
+                    } else if (name.includes('wall')) {
+                        wallObjects.push(child);
+                    } else if (name.includes('floor')) {
+                        floorObjects.push(child);
+                    }
+                }
+            });
+            
+            console.log(`🏠 Nájdené objekty: ${roomObjects.length} miestností, ${wallObjects.length} stien, ${floorObjects.length} podláh`);
+        }
+
+        function setupModelMaterials(model) {
+            let vertexCount = 0;
+            
+            model.traverse(function(child) {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                    
+                    // Počítanie vrcholov
+                    if (child.geometry) {
+                        vertexCount += child.geometry.attributes.position.count;
+                    }
+                    
+                    // Vylepšenie materiálov
+                    if (child.material) {
+                        child.material.side = THREE.DoubleSide;
+                        
+                        // Špecifické farby podľa typu objektu
+                        const name = child.name.toLowerCase();
+                        if (name.includes('room')) {
+                            child.material.color.setHex(0xf0f8ff); // Alice blue pre miestnosti
+                        } else if (name.includes('wall')) {
+                            child.material.color.setHex(0xd3d3d3); // Light gray pre steny
+                        } else if (name.includes('floor')) {
+                            child.material.color.setHex(0x8b4513); // Saddle brown pre podlahu
+                        }
+                    }
+                }
+            });
+            
+            window.totalVertices = vertexCount;
+        }
+
+        function centerModel(model) {
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            model.position.sub(center);
+            
+            // Optimálne pozíciovanie kamery
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const distance = maxDim * 1.5;
+            
+            camera.position.set(distance, distance * 0.8, distance);
+            controls.target.set(0, size.y / 4, 0);
+            controls.update();
+            
+            console.log(`📐 Model vycentrovaný. Rozmer: ${size.x.toFixed(1)} x ${size.y.toFixed(1)} x ${size.z.toFixed(1)}`);
+        }
+
+        function updateStats() {
+            document.getElementById('roomCount').textContent = roomObjects.length;
+            document.getElementById('wallCount').textContent = wallObjects.length;
+            document.getElementById('vertexCount').textContent = window.totalVertices || '?';
+        }
+
+        // Funkcie ovládania
+        function resetCamera() {
+            if (model) {
+                const box = new THREE.Box3().setFromObject(model);
+                const size = box.getSize(new THREE.Vector3());
+                const maxDim = Math.max(size.x, size.y, size.z);
+                const distance = maxDim * 1.5;
+                
+                camera.position.set(distance, distance * 0.8, distance);
+                controls.target.set(0, size.y / 4, 0);
+                controls.update();
+            }
+        }
+
+        function toggleWireframe() {
+            wireframeMode = !wireframeMode;
+            
+            if (model) {
+                model.traverse(function(child) {
+                    if (child.isMesh && child.material) {
+                        child.material.wireframe = wireframeMode;
+                    }
+                });
+            }
+        }
+
+        function toggleLighting() {
+            lightingEnabled = !lightingEnabled;
+            
+            scene.children.forEach(function(child) {
+                if (child.isLight && child.type !== 'AmbientLight') {
+                    child.visible = lightingEnabled;
+                }
+            });
+        }
+
+        function toggleFloor() {
+            floorVisible = !floorVisible;
+            
+            floorObjects.forEach(function(floor) {
+                floor.visible = floorVisible;
+            });
+        }
+
+        function takeScreenshot() {
+            const link = document.createElement('a');
+            link.download = 'example4_3d_model.png';
+            link.href = renderer.domElement.toDataURL();
+            link.click();
+        }
+
+        function onKeyDown(event) {
+            switch(event.code) {
+                case 'KeyR':
+                    resetCamera();
+                    break;
+                case 'KeyW':
+                    toggleWireframe();
+                    break;
+                case 'KeyL':
+                    toggleLighting();
+                    break;
+                case 'KeyF':
+                    toggleFloor();
+                    break;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // Animačná slučka
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        // Spustenie
+        console.log('🎮 Spúšťam Example4 3D Viewer...');
+        init();
+        animate();
+    </script>
+</body>
+</html>
