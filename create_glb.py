@@ -162,67 +162,10 @@ def ngon_to_triangle_indices_3d_concave(
         if not found_ear and len(v_indices) > 3:
             print("Error: Failed to find an ear. Polygon may be non-simple, non-planar, or degenerate.")
             break
-            # Edit: Fallback to previous algorithm
-            return ngon_to_triangle_indices(indices)
             
     # Add the last remaining triangle
     if len(v_indices) == 3:
         triangle_indices.extend(v_indices)
-        
-    return triangle_indices
-
-def ngon_to_triangle_indices(
-    indices: Union[np.ndarray, List[int]]
-) -> List[np.ndarray]:
-    """
-    Converts the indices of an n-gon defined by vertices into a list of 
-    separate index arrays, one for each triangle using fan triangulation.
-
-    Args:
-        vertices: An array-like structure (e.g., numpy array or list of tuples) 
-                  representing the vertex data. This is used for context but 
-                  not directly in the index calculation for fan triangulation.
-        indices: An array-like structure (e.g., numpy array or list) of integers 
-                 representing the indices of the n-gon's vertices in the 
-                 vertices array.
-
-    Returns:
-        A list of numpy arrays, where each inner array contains three 
-        indices forming one triangle.
-    """
-    # Ensure indices is a numpy array for easy access
-    indices = np.array(indices, dtype=np.int32)
-    num_vertices = len(indices)
-
-    # An n-gon can be split into (n - 2) triangles.
-    # The minimum number of vertices for a triangle is 3.
-    if num_vertices < 3:
-        return []  # Not a valid polygon for triangulation
-
-    # --- Fan Triangulation Logic ---
-    # The first vertex (at index 0 in the 'indices' array) is the pivot 
-    # for all triangles.
-    pivot_index = indices[0]
-    
-    # We iterate from the second vertex (index 1) up to the second-to-last 
-    # vertex (index num_vertices - 2).
-    # Each step i creates a triangle using:
-    # 1. The pivot_index (indices[0])
-    # 2. indices[i]
-    # 3. indices[i+1]
-    
-    triangle_indices = []
-    
-    # The loop runs for num_vertices - 2 times, generating that many triangles.
-    for i in range(1, num_vertices - 1):
-        # Extract the three indices for the current triangle
-        v1 = pivot_index
-        v2 = indices[i]
-        v3 = indices[i+1]
-        
-        # Create a numpy array for the current triangle's indices
-        # We use a 1D array of length 3 for the index array
-        triangle_indices.extend([v1, v2, v3])
         
     return triangle_indices
 
@@ -395,7 +338,7 @@ def main(image_path: str, output_path):
         primitive = Primitive(
             attributes=Attributes(POSITION=position_accessor), # POSITION uses the first accessor (index 0)
             indices=index_accessor, # Indices use the second accessor (index 1)
-            mode=PrimitiveMode.TRIANGLE_STRIP.value,
+            mode=PrimitiveMode.TRIANGLES.value,
         )
 
         mesh = create(gltf_meshes, Mesh(primitives=[primitive], name="SquareMesh"))
