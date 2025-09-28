@@ -252,7 +252,7 @@ def main(image_path: str, output_path):
         list.append(resource)
         return id
 
-    def create_mesh(name: str, faces, vertices):
+    def create_mesh(name: str, faces, vertices, invert_normals = False):
         # 1. Define the Mesh Data (Vertices and Indices)
 
         # Example: A simple square (two triangles)
@@ -271,6 +271,9 @@ def main(image_path: str, output_path):
             ngon_to_triangle_indices_3d_concave(vertices, faces[0]),
             dtype=np.uint16,
         )
+
+        if invert_normals:
+            indices = indices[::-1]
 
         # 2. Convert Data to Binary Buffers
 
@@ -403,7 +406,7 @@ def main(image_path: str, output_path):
         for walls in verts:
             j = 0
             for wall in walls:
-                create_mesh(f"Window_{i}_{j}", faces, wall)
+                create_mesh(f"Window_{i}_{j}", faces, wall, invert_normals=True)
                 j += 1
             i += 1
 
@@ -413,7 +416,7 @@ def main(image_path: str, output_path):
 
     if verts and faces:
         for i in range(0, len(verts)):
-            create_mesh(f"Window_{i}", faces[i], verts[i])
+            create_mesh(f"Window_{i}", faces[i], verts[i], invert_normals=True)
 
     print("\n### Doors ###\n")
     
