@@ -1,3 +1,4 @@
+import shutil
 from posixpath import join
 from tempfile import TemporaryDirectory
 
@@ -53,10 +54,13 @@ def process_image():
         output_path = join(tmpdir, "output.glb")
 
         try:
-            create_glb(image_path, output_path, config)
+            data_path = create_glb(image_path, output_path, config)
         except Exception as e:
             app.logger.error(f"GLB creation failed: {e}")
             return jsonify({"error": "Image processing failed"}), 500
+        
+        # Delete the intermediate data, create_glb keeps them for debugging by default
+        shutil.rmtree(data_path)
 
         response = send_file(
             output_path, 
@@ -71,4 +75,5 @@ def process_image():
 def request_entity_too_large(error):
     return jsonify({"error": "File size exceeds limit"}), 413
 
-app.run(port=8081)
+if __name__ == "__main__":
+    app.run(port=8081)

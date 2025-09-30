@@ -218,8 +218,7 @@ def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | N
     
         # Check if image exists
         if not os.path.exists(image_path):
-            print(f"Error: Image {image_path} not found!")
-            return
+            raise RuntimeError(f"Error: Image {image_path} not found!")
         
         # Ensure target directory exists
         os.makedirs(os.path.dirname(output_path), exist_ok=True)
@@ -489,6 +488,7 @@ def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | N
     gltf = GLTF(model=model, resources=gltf_resources)
     gltf.export(output_path)
 
+    return data_path
 
 if __name__ == "__main__":
    
