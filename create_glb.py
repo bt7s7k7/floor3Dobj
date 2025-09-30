@@ -1,3 +1,4 @@
+import configparser
 import json
 import os
 import sys
@@ -178,7 +179,36 @@ def read_from_file(file_path) -> "Any":
     except:
         return None
 
-def main(image_path: str, output_path):
+class ProcessorConfigHandler:
+    def __init__(self,
+            default_config_path: str = "./Configs/default.ini",
+            config_path: str = "./Configs/default.ini",
+            clean_data_path = True
+        ):
+        self.default_config_path = default_config_path
+        self.config_path = config_path
+        self.clean_data_path = clean_data_path
+        pass
+
+    def create_config(self, image_path: str):
+        # Read current config
+        conf = configparser.ConfigParser()
+        conf.read(self.default_config_path)
+        
+        # Update image path
+        if 'IMAGE' not in conf:
+            conf.add_section('IMAGE')
+        conf.set('IMAGE', 'image_path', f'"{image_path}"')
+        
+        # Write back
+        with open(self.config_path, 'w') as configfile:
+            conf.write(configfile)
+
+
+def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | None" = None):
+    if config is None:
+        config = ProcessorConfigHandler()
+    
     print(f"Starting conversion {image_path} -> {output_path}")
     print()
 
@@ -196,31 +226,17 @@ def main(image_path: str, output_path):
         
         print("Processing floorplan...")
         
-        # Generate data files (this part still needs the FloorplanToBlenderLib)
-        config_path = "./Configs/default.ini"
-        
-        # Update config to use selected image
-        if os.path.exists(config_path):
-            # Read current config
-            import configparser
-            conf = configparser.ConfigParser()
-            conf.read(config_path)
-            
-            # Update image path
-            if 'IMAGE' not in conf:
-                conf.add_section('IMAGE')
-            conf.set('IMAGE', 'image_path', f'"{image_path}"')
-            
-            # Write back
-            with open(config_path, 'w') as configfile:
-                conf.write(configfile)
+        config.create_config(image_path)
         
         # Create floorplan object
-        fp = floorplan.new_floorplan(config_path)
+        fp = floorplan.new_floorplan(config.config_path)
         
         # Generate data files
         print("Generating data files...")
-        IO.clean_data_folder("Data")
+
+        if config.clean_data_path:
+            IO.clean_data_folder("Data")
+
         data_path = execution.simple_single(fp)
     
     # Create 3D model directly
@@ -471,7 +487,7 @@ def main(image_path: str, output_path):
     )
 
     gltf = GLTF(model=model, resources=gltf_resources)
-    gltf.export(output_path + ".glb")
+    gltf.export(output_path)
 
 
 if __name__ == "__main__":
@@ -479,13 +495,13 @@ if __name__ == "__main__":
     input = sys.argv[1] if len(sys.argv) > 1 else None
     if not input:
         print("Missing 'input' parameter, expected: <input> <output>")
-        print("Example usage: python create_glb.py Images/Examples/example2.png Target/floorplan_direct")
+        print("Example usage: python create_glb.py Images/Examples/example2.png Target/floorplan_direct.glb")
         sys.exit(1)
 
     output = sys.argv[2] if len(sys.argv) > 2 else None
     if not output:
         print("Missing 'output' parameter, expected: <input> <output>")
-        print("Example usage: python create_glb.py Images/Examples/example2.png Target/floorplan_direct")
+        print("Example usage: python create_glb.py Images/Examples/example2.png Target/floorplan_direct.glb")
         sys.exit(1)
 
-    main(input, output)
+    create_glb(input, output)
