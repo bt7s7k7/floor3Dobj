@@ -76,4 +76,4 @@ def request_entity_too_large(error):
     return jsonify({"error": "File size exceeds limit"}), 413
 
 if __name__ == "__main__":
-    app.run(port=8081)
+    app.run(host="0.0.0.0", port=8081)
