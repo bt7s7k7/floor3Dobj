@@ -2,7 +2,7 @@ from posixpath import join
 from tempfile import TemporaryDirectory
 
 from create_glb import ProcessorConfigHandler, create_glb
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, send_file
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16 MiB
@@ -34,43 +34,38 @@ def process_image():
     if extension is None:
         return jsonify({"error": "Illegal extension"}), 400
     
-    tmpdir_ctl = TemporaryDirectory()
-    tmpdir = tmpdir_ctl.name
+    with TemporaryDirectory() as tmpdir:
+        image_path = join(tmpdir, "image." + extension)
 
-    image_path = join(tmpdir, "image." + extension)
+        try:
+            file.save(image_path)
+        except IOError:
+            app.logger.error(f"Failed to save file to {image_path}")
+            return jsonify({"error": "Failed to save file on server"}), 500
 
-    try:
-        file.save(image_path)
-    except IOError:
-        app.logger.error(f"Failed to save file to {image_path}")
-        return jsonify({"error": "Failed to save file on server"}), 500
+        app.logger.info(f"Saving user image to: {image_path}")
 
-    app.logger.info(f"Saving user image to: {image_path}")
+        config = ProcessorConfigHandler(
+            config_path=join(tmpdir, "config.ini"),
+            clean_data_path=False
+        )
 
-    config = ProcessorConfigHandler(
-        config_path=join(tmpdir, "config.ini"),
-        clean_data_path=False
-    )
+        output_path = join(tmpdir, "output.glb")
 
-    output_path = join(tmpdir, "output.glb")
+        try:
+            create_glb(image_path, output_path, config)
+        except Exception as e:
+            app.logger.error(f"GLB creation failed: {e}")
+            return jsonify({"error": "Image processing failed"}), 500
 
-    try:
-        create_glb(image_path, output_path, config)
-    except Exception as e:
-        app.logger.error(f"GLB creation failed: {e}")
-        return jsonify({"error": "Image processing failed"}), 500
-    
-    file_handle = open(output_path, 'rb')
+        response = send_file(
+            output_path, 
+            mimetype='model/gltf-binary',
+            as_attachment=True, 
+            download_name="output.glb"
+        )
 
-    def stream_and_remove_file():
-        yield from file_handle
-        file_handle.close()
-        tmpdir_ctl.cleanup()
-
-    return app.response_class(
-        stream_and_remove_file(),
-        headers={'Content-Disposition': 'attachment', 'filename': "output.glb", "Content-Type": 'model/gltf-binary'}
-    )
+        return response
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
