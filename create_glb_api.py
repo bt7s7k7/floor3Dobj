@@ -1,6 +1,7 @@
 import shutil
+import traceback
 from posixpath import join
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, mkdtemp
 
 from create_glb import ProcessorConfigHandler, create_glb
 from flask import Flask, jsonify, request, send_file
@@ -35,7 +36,7 @@ def process_image():
     if extension is None:
         return jsonify({"error": "Illegal extension"}), 400
     
-    with TemporaryDirectory() as tmpdir:
+    def process_image(tmpdir: str):
         image_path = join(tmpdir, "image." + extension)
 
         try:
@@ -55,8 +56,8 @@ def process_image():
 
         try:
             data_path = create_glb(image_path, output_path, config)
-        except Exception as e:
-            app.logger.error(f"GLB creation failed: {e}")
+        except Exception:
+            app.logger.error(f"GLB creation failed: {traceback.format_exc()}")
             return jsonify({"error": "Image processing failed"}), 500
         
         # Delete the intermediate data, create_glb keeps them for debugging by default
@@ -70,6 +71,17 @@ def process_image():
         )
 
         return response
+    
+    debug = False
+
+    if debug:
+        # If debug is enabled, do not use context so the temporary directory is not deleted and we
+        # can inspect the files
+        path = mkdtemp()
+        return process_image(path)
+
+    with TemporaryDirectory() as tmpdir:
+        return process_image(tmpdir)
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
