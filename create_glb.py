@@ -123,6 +123,13 @@ def ngon_to_triangle_indices_3d_concave(
             idx_next = v_indices[i_next]
 
             # Corresponding 3D vertex coordinates
+            if idx_prev >= len(vertices_data):
+                continue
+            if idx_curr >= len(vertices_data):
+                continue
+            if idx_next >= len(vertices_data):
+                continue
+
             v_prev = vertices_data[idx_prev]
             v_curr = vertices_data[idx_curr]
             v_next = vertices_data[idx_next]
@@ -141,8 +148,13 @@ def ngon_to_triangle_indices_3d_concave(
                 # Skip the three vertices forming the potential ear
                 if j == i_prev or j == i_curr or j == i_next:
                     continue
-                    
-                p = vertices_data[v_indices[j]]
+                
+                selected_index = v_indices[j]
+
+                if selected_index >= len(vertices_data):
+                    continue
+
+                p = vertices_data[selected_index]
                 
                 # Check if any other vertex is inside the triangle
                 if is_point_in_triangle_3d(p, v_prev, v_curr, v_next, normal):
