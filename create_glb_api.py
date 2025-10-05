@@ -1,13 +1,14 @@
-import shutil
-import traceback
+import sys
+from logging import INFO
+from os import system
 from posixpath import join
 from tempfile import TemporaryDirectory, mkdtemp
 
-from create_glb import ProcessorConfigHandler, create_glb
 from flask import Flask, jsonify, request, send_file
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024 # 16 MiB
+app.logger.setLevel(INFO)
 
 ALLOWED_EXTENSIONS = {"png", "jpg", "jpeg"}
 def parse_extension(filename: "str | None"):
@@ -47,21 +48,14 @@ def process_image():
 
         app.logger.info(f"Saving user image to: {image_path}")
 
-        config = ProcessorConfigHandler(
-            config_path=join(tmpdir, "config.ini"),
-            clean_data_path=False
-        )
-
         output_path = join(tmpdir, "output.glb")
+        config_path=join(tmpdir, "config.ini")
 
-        try:
-            data_path = create_glb(image_path, output_path, config)
-        except Exception:
-            app.logger.error(f"GLB creation failed: {traceback.format_exc()}")
+        command = f"{sys.executable} create_glb.py {image_path} {output_path} --clean-intermediate-data --no-clean-data-path --config-path={config_path}"
+        app.logger.info(f"$$ Executing: {command}")
+        if system(command) != 0:
+            app.logger.error(f"GLB creation failed")
             return jsonify({"error": "Image processing failed"}), 500
-        
-        # Delete the intermediate data, create_glb keeps them for debugging by default
-        shutil.rmtree(data_path)
 
         response = send_file(
             output_path, 

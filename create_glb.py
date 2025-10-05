@@ -1,6 +1,7 @@
 import configparser
 import json
 import os
+import shutil
 import sys
 from typing import Any, List, Union
 
@@ -290,17 +291,6 @@ def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | N
             dtype=np.float32,
         )
 
-        # (!) Because the data from the converter is meant for blender it has a different coordinate
-        # system
-
-        # 1. Negate the third column (Z)
-        # arr_original[:, 2] selects all rows (:) and the third column (index 2)
-        vertices[:, 2] = -vertices[:, 2]
-
-        # 2. Reorder the columns to (0, 2, 1) using fancy indexing
-        # This selects column 0 (X), the modified column 2 (-Z), and column 1 (Y)
-        vertices = vertices[:, [0, 2, 1]]
-
         # Indices (to form two triangles: 0-1-2 and 1-3-2) - uint16 is common for indices
         if len(faces) > 1:
             print(f"Mesh {name} has more than one face: {faces}")
@@ -312,6 +302,17 @@ def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | N
 
         if invert_normals:
             indices = indices[::-1]
+
+        # (!) Because the data from the converter is meant for blender it has a different coordinate
+        # system
+
+        # 1. Negate the third column (Z)
+        # arr_original[:, 2] selects all rows (:) and the third column (index 2)
+        vertices[:, 2] = -vertices[:, 2]
+
+        # 2. Reorder the columns to (0, 2, 1) using fancy indexing
+        # This selects column 0 (X), the modified column 2 (-Z), and column 1 (Y)
+        vertices = vertices[:, [0, 2, 1]]
 
         # 2. Convert Data to Binary Buffers
 
@@ -526,5 +527,20 @@ if __name__ == "__main__":
         print("Missing 'output' parameter, expected: <input> <output>")
         print("Example usage: python create_glb.py Images/Examples/example2.png Target/floorplan_direct.glb")
         sys.exit(1)
+    
+    config = ProcessorConfigHandler()
 
-    create_glb(input, output)
+    clean_intermediate_data = False
+    if "--clean-intermediate-data" in sys.argv:
+        clean_intermediate_data = True
+
+    if "--no-clean-data-path" in sys.argv:
+        config.clean_data_path = False
+    
+    if config_path := next((arg[14:] for arg in sys.argv if arg.startswith("--config-path="))):
+        config.config_path = config_path
+
+    ir_path = create_glb(input, output, config)
+
+    if clean_intermediate_data:
+        shutil.rmtree(ir_path)
