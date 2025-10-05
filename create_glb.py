@@ -290,6 +290,17 @@ def create_glb(image_path: str, output_path, config: "ProcessorConfigHandler | N
             dtype=np.float32,
         )
 
+        # (!) Because the data from the converter is meant for blender it has a different coordinate
+        # system
+
+        # 1. Negate the third column (Z)
+        # arr_original[:, 2] selects all rows (:) and the third column (index 2)
+        vertices[:, 2] = -vertices[:, 2]
+
+        # 2. Reorder the columns to (0, 2, 1) using fancy indexing
+        # This selects column 0 (X), the modified column 2 (-Z), and column 1 (Y)
+        vertices = vertices[:, [0, 2, 1]]
+
         # Indices (to form two triangles: 0-1-2 and 1-3-2) - uint16 is common for indices
         if len(faces) > 1:
             print(f"Mesh {name} has more than one face: {faces}")
